@@ -137,7 +137,9 @@ else
 fi
 pm2 save >/dev/null 2>&1 || true
 
-if command -v systemctl >/dev/null 2>&1 && [ "$SUDO" != "__none__" ]; then
+if [ "${SKIP_STARTUP:-0}" = "1" ]; then
+  log "Arranque automático de PM2: omitido (SKIP_STARTUP=1)"
+elif command -v systemctl >/dev/null 2>&1 && [ "$SUDO" != "__none__" ]; then
   unit="pm2-$(id -un)"
   if ! systemctl is-enabled "$unit" >/dev/null 2>&1; then
     as_root env PATH="$PATH:$(dirname "$(command -v node)")" "$(command -v pm2)" startup systemd -u "$(id -un)" --hp "$HOME" >/dev/null 2>&1 \
