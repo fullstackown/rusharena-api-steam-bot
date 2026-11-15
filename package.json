@@ -1,0 +1,10 @@
+{
+  "name": "steam-relay",
+  "version": "1.0.0",
+  "description": "Relay de solo lectura para consultas públicas a steamcommunity.com (precios e inventarios) desde otra IP.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20.12" },
+  "license": "MIT"
+}
