@@ -43,23 +43,25 @@ node_ok() {
 
 status_json() {
   load_node
-  local port health pm2json
+  local port health
   port="$(grep -E '^PORT=' "$DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"'"'"' \r')"
   port="${port:-4870}"
   health="$(curl -fsS -m 5 "http://127.0.0.1:${port}/health" 2>/dev/null || echo 'null')"
-  pm2json="$(pm2 jlist 2>/dev/null || echo '[]')"
-  PORT_="$port" HEALTH_="$health" PM2_="$pm2json" node -e '
+  # pm2 jlist puede ser enorme (incluye el entorno de cada app): va por stdin y solo se toma steam-relay.
+  { pm2 jlist 2>/dev/null || echo '[]'; } | PORT_="$port" HEALTH_="$health" node -e '
     const os = require("os");
-    let pm = []; try { pm = JSON.parse(process.env.PM2_ || "[]"); } catch {}
-    const a = pm.find((p) => p.name === "steam-relay");
-    let health = null; try { health = JSON.parse(process.env.HEALTH_); } catch {}
-    console.log("STEAM_RELAY_STATUS " + JSON.stringify({
-      installed: !!a,
-      pm2: a ? { status: a.pm2_env.status, restarts: a.pm2_env.restart_time, uptimeSince: a.pm2_env.pm_uptime, memory: a.monit && a.monit.memory, cpu: a.monit && a.monit.cpu } : null,
-      health, port: Number(process.env.PORT_), node: process.version,
-      host: { hostname: os.hostname(), platform: os.type() + " " + os.release(), cpus: os.cpus().length, loadavg: os.loadavg(), memTotal: os.totalmem(), memFree: os.freemem(), uptimeSec: Math.round(os.uptime()) },
-    }));
-  ' 2>/dev/null || echo 'STEAM_RELAY_STATUS {"installed":false,"error":"Node no disponible"}'
+    let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
+      let pm = []; try { pm = JSON.parse(raw.slice(raw.indexOf("["))); } catch {}
+      const a = pm.find((p) => p.name === "steam-relay");
+      let health = null; try { health = JSON.parse(process.env.HEALTH_); } catch {}
+      console.log("STEAM_RELAY_STATUS " + JSON.stringify({
+        installed: !!a,
+        pm2: a ? { status: a.pm2_env.status, restarts: a.pm2_env.restart_time, uptimeSince: a.pm2_env.pm_uptime, memory: a.monit && a.monit.memory, cpu: a.monit && a.monit.cpu } : null,
+        health, port: Number(process.env.PORT_), node: process.version,
+        host: { hostname: os.hostname(), platform: os.type() + " " + os.release(), cpus: os.cpus().length, loadavg: os.loadavg(), memTotal: os.totalmem(), memFree: os.freemem(), uptimeSec: Math.round(os.uptime()) },
+      }));
+    });
+  ' || echo 'STEAM_RELAY_STATUS {"installed":false,"error":"Node no disponible"}'
 }
 
 if [ "$MODE" = "--status" ]; then status_json; exit 0; fi
